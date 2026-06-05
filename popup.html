@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日报数据获取</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>本周日报数据</h1>
+
+    <div id="status" class="status">
+      准备就绪
+    </div>
+
+    <div id="weekRange" class="week-range"></div>
+
+    <button id="fetchBtn" class="btn primary">获取本周数据</button>
+
+    <!-- AI 总结输出区域 -->
+    <div id="aiSummaryContainer" class="result-container hidden">
+      <div class="result-header">
+        <span>AI 工作总结</span>
+        <button id="copyAiBtn" class="btn small">复制</button>
+      </div>
+      <div id="aiSummaryOutput" class="ai-summary-output"></div>
+    </div>
+
+    <!-- Markdown 输出区域（可折叠） -->
+    <div id="markdownContainer" class="result-container hidden collapsed">
+      <div class="result-header clickable" id="markdownToggle">
+        <span>Markdown 格式 ▶</span>
+        <div class="btn-group">
+          <button id="aiSummaryBtn" class="btn small">AI 总结</button>
+          <button id="copyMdBtn" class="btn small">复制</button>
+        </div>
+      </div>
+      <pre id="markdownOutput" class="markdown-output hidden"></pre>
+    </div>
+
+    <!-- JSON 输出区域（默认折叠） -->
+    <div id="resultContainer" class="result-container hidden collapsed">
+      <div class="result-header clickable" id="jsonToggle">
+        <span>JSON 数据 ▶</span>
+        <button id="copyBtn" class="btn small">复制</button>
+      </div>
+      <pre id="jsonOutput" class="json-output hidden"></pre>
+    </div>
+
+    <div id="errorContainer" class="error-container hidden">
+      <span id="errorMessage"></span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
