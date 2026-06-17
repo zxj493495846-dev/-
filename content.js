@@ -1,27 +1,9 @@
 // 内容脚本 - 注入到目标页面获取数据
-(function() {
+(function () {
   'use strict';
 
   // 配置
   const BASE_URL = 'https://gs.capinfo.com.cn';
-
-  // 计算本周日期范围（周一到周日）
-  function getWeekRange() {
-    const today = new Date();
-    const monday = new Date(today);
-    const dayOfWeek = today.getDay();
-    // 如果是周日(0)，则向前6天到周一
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    monday.setDate(today.getDate() - daysToMonday);
-
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-
-    return {
-      start: formatDate(monday),
-      end: formatDate(sunday)
-    };
-  }
 
   // 格式化日期为 YYYY-MM-DD
   function formatDate(date) {
@@ -29,6 +11,19 @@
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  // 获取本周一和今天（截止到当天）的 YYYY-MM-DD 字符串
+  function getThisWeekRangeToToday() {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0周日 ~ 6周六
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - daysToMonday);
+    return {
+      start: formatDate(monday),   // 字符串 'YYYY-MM-DD'
+      end: formatDate(today)       // 字符串 'YYYY-MM-DD'
+    };
   }
 
   // 从 Cookie 获取 Admin-Token
@@ -43,11 +38,9 @@
     return null;
   }
 
-  // 获取本周日报数据（stat API 一次返回本周所有数据）
-  async function fetchWeeklyData(token, startDate, endDate) {
-    // 使用周一的日期调用 stat API
-    const url = `${BASE_URL}/api/mh/hour/stat?date=${startDate}&projectId=&flowState=`;
-
+  // 获取本月数据（传入周一日期，接口实际返回整月数据）
+  async function fetchMonthlyData(token, dateParam) {
+    const url = `${BASE_URL}/api/mh/hour/stat?date=${dateParam}&projectId=&flowState=`;
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -59,11 +52,9 @@
         },
         credentials: 'include'
       });
-
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-
       const data = await response.json();
       return data;
     } catch (error) {
@@ -72,21 +63,23 @@
     }
   }
 
-  // 解析工时数据，提取需要的字段
-  function parseHourData(response) {
+  // 解析工时数据，并过滤出本周一到今天的记录（使用字符串比较日期）
+  function parseAndFilterHourData(response, weekStartStr, weekEndStr) {
     if (!response || !response.data || !Array.isArray(response.data)) {
-      return [];
+      return { data: [], message: '接口返回数据格式不正确' };
     }
 
     const result = [];
-
     for (const item of response.data) {
-      const date = item.date;
+      const itemDate = item.date; // 格式 'YYYY-MM-DD'
+      // 直接字符串比较（字典序对 YYYY-MM-DD 有效）
+      if (itemDate < weekStartStr || itemDate > weekEndStr) {
+        continue;
+      }
       const projectHours = item.projectHours || [];
-
       for (const proj of projectHours) {
         result.push({
-          date: date,
+          date: itemDate,
           projectId: proj.projectId,
           projectName: proj.projectName || '',
           useHour: proj.useHour || 0,
@@ -99,40 +92,47 @@
       }
     }
 
-    return result;
+    if (result.length === 0) {
+      return { data: [], message: '本周暂无日报数据，请确认已填写日报' };
+    }
+    return { data: result, message: null };
+  }
+
+  // 主逻辑：获取本周一到今天的日报数据
+  async function getWeeklyDataUpToToday(token) {
+    const { start: weekStartStr, end: weekEndStr } = getThisWeekRangeToToday();
+    // 使用周一的日期作为请求参数（原方式，可获取整月数据）
+    const monthlyData = await fetchMonthlyData(token, weekStartStr);
+    return parseAndFilterHourData(monthlyData, weekStartStr, weekEndStr);
   }
 
   // 监听来自 popup 或 background 的消息
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getWeeklyData') {
       const token = getAdminToken();
-
       if (!token) {
         sendResponse({ success: false, error: '未找到 Admin-Token，请确保已登录' });
         return true;
       }
 
-      const { start, end } = getWeekRange();
-
-      fetchWeeklyData(token, start, end)
-        .then(apiResult => {
-          const parsedData = parseHourData(apiResult);
+      getWeeklyDataUpToToday(token)
+        .then(parsedResult => {
+          const { start, end } = getThisWeekRangeToToday();
           sendResponse({
             success: true,
-            data: parsedData,
-            weekRange: { start, end },
-            rawResponse: apiResult
+            data: parsedResult.data,
+            message: parsedResult.message,
+            weekRange: { start, end }
           });
         })
         .catch(error => {
           sendResponse({
             success: false,
-            error: error.message || '获取数据失败',
-            weekRange: { start, end }
+            error: error.message || '获取数据失败'
           });
         });
 
-      return true; // 异步响应
+      return true;
     }
 
     if (request.action === 'checkLogin') {

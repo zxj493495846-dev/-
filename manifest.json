@@ -1,17 +1,19 @@
 {
-  "manifest_version": 3,
-  "name": "日报数据获取工具",
-  "version": "1.1",
-  "description": "从工作日报系统获取本周全部日报数据（JSON格式）",
+  "manifest_version": 4,
+  "name": "周报获取及总结",
+  "version": "2.0",
+  "description": "从工作日报系统获取本周全部日报数据，并调用gtiee_ai Qwen3 8B模型进行总结，生成周报（Markdown格式）",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage",
+    "sidePanel"
   ],
   "host_permissions": [
-    "https://gs.capinfo.com.cn/*"
+    "https://gs.capinfo.com.cn/api/*",
+    "https://gs.capinfo.com.cn/pc/*"
   ],
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -22,5 +24,11 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "side_panel": {
+    "default_path": "sidebar.html"
+  },
+  "background": {
+    "service_worker": "background.js"
   }
 }
